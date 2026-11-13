@@ -3,14 +3,14 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import {
-  BookOpenCheck, MessagesSquare, ScanSearch, PenLine, LineChart, Library, GraduationCap, Mic, Languages, Users, ArrowRight,
-  CheckCircle2, Menu, X, Brain, Clock, Wallet, HelpCircle, Eye, Sparkles, Share2, AtSign, Globe, PlayCircle, Flame, TrendingUp,
+  BookOpenCheck, MessagesSquare, ScanSearch, PenLine, LineChart, Library, GraduationCap, Mic, Languages, Users, ArrowRight, CheckCircle2, Menu, X, Brain, Wallet, HelpCircle, Sparkles, Share2, AtSign, Globe, PlayCircle,
 } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { Button, Badge, Progress, Card } from "@/components/ui";
 import { LANGUAGES } from "@/data/mock-curriculum";
-import { RoleSwitcher } from "@/components/layout/PortalShell";
 import { cn } from "@/lib/utils";
+import { Login } from "@/features/auth/Login";
+import type { Role } from "@/types";
 
 const NAV = [
   ["Features", "#features"], ["How it works", "#how"], ["For students", "#students"],
@@ -27,8 +27,7 @@ function Nav() {
           {NAV.map(([l, h]) => <a key={h} href={h} className="text-sm font-medium text-slate-600 hover:text-oxford">{l}</a>)}
         </nav>
         <div className="hidden items-center gap-2 lg:flex">
-          <RoleSwitcher />
-          <Link href="/student"><Button variant="ghost">Sign in</Button></Link>
+          <a href="#login"><Button variant="ghost">Sign in</Button></a>
           <Link href="/onboarding"><Button variant="accent">Get started</Button></Link>
         </div>
         <button className="rounded-lg p-2 lg:hidden" onClick={() => setOpen(!open)} aria-label="Menu">{open ? <X /> : <Menu />}</button>
@@ -36,53 +35,14 @@ function Nav() {
       {open && (
         <div className="border-t border-line bg-white px-4 pb-4 lg:hidden">
           {NAV.map(([l, h]) => <a key={h} href={h} onClick={() => setOpen(false)} className="block py-3 text-sm font-medium">{l}</a>)}
-          <div className="flex gap-2 pt-2"><Link href="/student" className="flex-1"><Button variant="outline" className="w-full justify-center">Sign in</Button></Link><Link href="/onboarding" className="flex-1"><Button variant="accent" className="w-full justify-center">Get started</Button></Link></div>
+          <div className="flex gap-2 pt-2"><a href="#login" onClick={() => setOpen(false)} className="flex-1"><Button variant="outline" className="w-full justify-center">Sign in</Button></a><Link href="/onboarding" className="flex-1"><Button variant="accent" className="w-full justify-center">Get started</Button></Link></div>
         </div>
       )}
     </header>
   );
 }
 
-function ProductPreview() {
-  return (
-    <div className="relative mx-auto w-full max-w-xl">
-      <div className="absolute -inset-6 -z-10 rounded-[2rem] bg-gradient-to-br from-oxford-100 to-sun-50 blur-2xl" />
-      <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-lift">
-        <div className="flex items-center gap-1.5 border-b border-line bg-mist px-4 py-2.5">
-          <span className="h-2.5 w-2.5 rounded-full bg-crimson/70" /><span className="h-2.5 w-2.5 rounded-full bg-sun" /><span className="h-2.5 w-2.5 rounded-full bg-success" />
-          <span className="ml-3 text-[11px] text-slate-400">Class 8 · Mathematics · Linear Equations</span>
-        </div>
-        <div className="space-y-3 p-4">
-          <div className="flex gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-oxford text-sm text-white">🎓</div>
-            <div className="rounded-2xl rounded-tl-sm bg-oxford-50 px-3.5 py-2.5 text-sm text-ink">
-              Imagine a box with some unknown chocolates, <b>x</b>. You add 4 more and now have 10. So we can write:
-              <div className="my-2 rounded-lg bg-white px-3 py-2 text-center font-mono text-base text-oxford">x + 4 = 10</div>
-              What should <b>x</b> be?
-            </div>
-          </div>
-          <div className="flex flex-wrap justify-end gap-2 pl-10">
-            {["4", "6", "14"].map((o, i) => <span key={o} className={cn("rounded-full border px-4 py-1.5 text-sm", i === 1 ? "border-success bg-success-50 text-success-700" : "border-line")}>{o}</span>)}
-          </div>
-          <div className="flex gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-oxford text-sm text-white">🎓</div>
-            <div className="rounded-2xl rounded-tl-sm bg-success-50 px-3.5 py-2.5 text-sm text-success-700"><CheckCircle2 className="mr-1 inline h-4 w-4" />Correct! Subtract 4 from both sides: x = 10 − 4 = 6.</div>
-          </div>
-        </div>
-      </div>
-      <motion.div initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.5 }} className="absolute -bottom-8 -left-4 hidden w-56 rounded-2xl border border-line bg-white p-4 shadow-lift sm:block">
-        <p className="text-xs font-semibold text-oxford">Linear Equations mastery</p>
-        <div className="mt-1 flex items-end gap-2"><span className="text-2xl font-bold text-success-700">92%</span><span className="mb-1 flex items-center text-xs text-success-700"><TrendingUp className="mr-0.5 h-3 w-3" />+37</span></div>
-        <Progress value={92} className="mt-2" />
-      </motion.div>
-      <motion.div initial={{ y: -10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ delay: 0.7 }} className="absolute -right-3 -top-5 hidden items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3 shadow-lift sm:flex">
-        <Flame className="h-5 w-5 text-crimson" /><div><p className="text-sm font-bold text-oxford">12-day streak</p><p className="text-[11px] text-slate-500">Keep it going!</p></div>
-      </motion.div>
-    </div>
-  );
-}
-
-function Hero() {
+function Hero({ role }: { role: Role }) {
   return (
     <section className="relative overflow-hidden bg-white">
       <div className="mx-auto grid max-w-7xl items-center gap-14 px-4 pb-24 pt-14 sm:px-6 lg:grid-cols-2 lg:pt-20">
@@ -99,7 +59,7 @@ function Hero() {
             {["CBSE · ICSE · State Boards", "Classes 1–12", "Student, Parent & Academic portals"].map((t) => <span key={t} className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-success" />{t}</span>)}
           </div>
         </motion.div>
-        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.6 }}><ProductPreview /></motion.div>
+        <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.6 }}><Login initialRole={role} /></motion.div>
       </div>
     </section>
   );
@@ -282,11 +242,11 @@ function Footer() {
   );
 }
 
-export default function Landing() {
+export default function Landing({ role }: { role: Role }) {
   return (
     <div className="bg-white">
       <Nav />
-      <Hero />
+      <Hero role={role} />
       <Problem />
       <Pillars />
       <Features />

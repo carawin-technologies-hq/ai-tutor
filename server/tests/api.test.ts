@@ -197,7 +197,7 @@ describe("content & admin", () => {
 });
 
 describe("AI teacher chat", () => {
-  it.runIf(!process.env.ANTHROPIC_API_KEY)("explains clearly when the AI key is not configured", async () => {
+  it.runIf(!process.env.ANTHROPIC_API_KEY && !process.env.DEEPSEEK_API_KEY)("explains clearly when the AI key is not configured", async () => {
     const r = await request(app).post("/api/v1/chat/conversations").set(auth(studentToken)).send({ text: "Why does the moon change its shape?" });
     expect(r.status).toBe(503);
     expect(r.body.error.code).toBe("ai_not_configured");

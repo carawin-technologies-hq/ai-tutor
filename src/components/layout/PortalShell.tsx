@@ -2,7 +2,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search, X, Moon, Sun, RotateCcw, FlaskConical, Globe, ChevronDown } from "lucide-react";
+import { Bell, Menu, PanelLeftClose, PanelLeftOpen, Search, X, Moon, Sun, RotateCcw, LogOut, Globe, ChevronDown } from "lucide-react";
 import { Logo } from "@/components/shared/Logo";
 import { cn } from "@/lib/utils";
 import { Dropdown, MenuItem, Modal, Input, Badge } from "@/components/ui";
@@ -10,33 +10,29 @@ import { useDemo } from "@/components/shared/DemoProvider";
 import { STUDENT_NAV, PARENT_NAV, ADMIN_NAV, type NavItem } from "./nav-config";
 import { UI_LANGUAGES, BOARDS, CLASSES } from "@/data/mock-curriculum";
 import type { Role } from "@/types";
+import { getSession, roleOf, signOut, type Session } from "@/lib/session";
 
 const ROLE_HOME: Record<Role, string> = { student: "/student", parent: "/parent", admin: "/admin" };
 const NAVS: Record<Role, NavItem[]> = { student: STUDENT_NAV, parent: PARENT_NAV, admin: ADMIN_NAV };
 const ROLE_LABEL: Record<Role, string> = { student: "Student", parent: "Parent", admin: "Admin" };
 
-export function RoleSwitcher({ compact }: { compact?: boolean }) {
-  const { role, setRole, toast, resetDemo, theme } = useDemo();
+function AccountMenu({ session }: { session: Session }) {
+  const { resetDemo } = useDemo();
   const router = useRouter();
   return (
     <Dropdown trigger={
-      <button className="flex items-center gap-1.5 rounded-full border border-dashed border-sun-600 bg-sun-50 px-3 py-1.5 text-xs font-semibold text-oxford hover:bg-sun-100" aria-label="Prototype demo menu">
-        <FlaskConical className="h-3.5 w-3.5 text-warn-700" />
-        {!compact && <span>Prototype Demo</span>}
-        <span className="rounded-full bg-oxford px-1.5 py-0.5 text-[10px] text-white">{ROLE_LABEL[role]}</span>
+      <button className="flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-xs font-semibold text-oxford hover:bg-oxford-50 dark:text-slate-100 dark:border-[#2A3F63]" aria-label="Account menu">
+        <span className="hidden max-w-[10rem] truncate sm:inline">{session.user.name}</span>
+        <span className="rounded-full bg-oxford px-1.5 py-0.5 text-[10px] text-white">{ROLE_LABEL[roleOf(session)]}</span>
         <ChevronDown className="h-3 w-3" />
       </button>
     }>
       {(close) => (
         <div className="w-64">
-          <p className="px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-400">Switch demo role</p>
-          {(["student", "parent", "admin"] as Role[]).map((r) => (
-            <MenuItem key={r} active={role === r} onClick={() => { setRole(r); router.push(ROLE_HOME[r]); close(); toast(`Viewing the ${ROLE_LABEL[r]} experience`, "info"); }}>
-              {ROLE_LABEL[r]} portal
-            </MenuItem>
-          ))}
+          <p className="truncate px-3 py-1.5 text-xs text-slate-500">{session.user.email}</p>
+          <MenuItem onClick={async () => { close(); await signOut(); router.replace("/#login"); }}><LogOut className="h-4 w-4" />Sign out</MenuItem>
           <div className="my-1.5 border-t border-line" />
-          <p className="px-3 py-1 text-xs text-slate-500">This is a frontend prototype. All data is demonstration data; no real authentication or AI is connected.</p>
+          <p className="px-3 py-1 text-xs text-slate-500">Pages still show demonstration data.</p>
           <MenuItem onClick={() => { close(); resetDemo(); }}><RotateCcw className="h-4 w-4" />Reset demo data</MenuItem>
         </div>
       )}
@@ -103,6 +99,16 @@ export function PortalShell({ role, children }: { role: Role; children: React.Re
   const [mobile, setMobile] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const items = NAVS[role];
+  const router = useRouter();
+  const [session, setSession] = useState<Session | null>(null);
+
+  // Signed out → login; signed in with another role → that role's portal.
+  useEffect(() => {
+    const s = getSession();
+    if (!s) router.replace(`/?role=${role}#login`);
+    else if (roleOf(s) !== role) router.replace(ROLE_HOME[roleOf(s)]);
+    else setSession(s);
+  }, [role]); // eslint-disable-line
 
   // keep demo role in sync with route
   useEffect(() => { if (current !== role) setRole(role); }, [role]); // eslint-disable-line
@@ -115,9 +121,10 @@ export function PortalShell({ role, children }: { role: Role; children: React.Re
   const unread = notices.filter((n) => !n.read).length;
   const hour = new Date().getHours();
   const greet = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const first = role === "student" ? profile.name.split(" ")[0] : role === "parent" ? "Ananya" : "Admin";
+  const first = session?.user.name.split(" ")[0] ?? "";
   const avatar = role === "student" ? profile.avatar : role === "parent" ? "👩" : "🛠️";
 
+  if (!session) return null;
   return (
     <div className="flex min-h-screen">
       {/* Desktop sidebar */}
@@ -200,7 +207,7 @@ export function PortalShell({ role, children }: { role: Role; children: React.Re
               </div>
             )}
           </Dropdown>
-          <RoleSwitcher compact />
+          <AccountMenu session={session} />
           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-oxford-50 text-lg" aria-label="Profile avatar">{avatar}</div>
         </header>
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>

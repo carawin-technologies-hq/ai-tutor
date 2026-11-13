@@ -70,11 +70,12 @@ let client: Anthropic | null = null;
 
 export interface Turn { role: "STUDENT" | "TEACHER"; text?: string | null; blocks?: Block[] | null }
 
-export async function askTeacher(history: Turn[], question: string, profile: StudentProfile | null, studentName: string): Promise<TeacherAnswer> {
-  if (!config.ANTHROPIC_API_KEY) throw new HttpError(503, "ai_not_configured", "The AI teacher isn't set up on this server yet.");
-  client ??= new Anthropic({ apiKey: config.ANTHROPIC_API_KEY, timeout: 90_000, maxRetries: 2 });
+type Msg = { role: "user" | "assistant"; content: string };
 
-  const messages: Anthropic.Beta.BetaMessageParam[] = [];
+export async function askTeacher(history: Turn[], question: string, profile: StudentProfile | null, studentName: string): Promise<TeacherAnswer> {
+  if (!config.ai) throw new HttpError(503, "ai_not_configured", "The AI teacher isn't set up on this server yet.");
+
+  const messages: Msg[] = [];
   for (const t of history.slice(-12)) {
     const content = t.role === "STUDENT" ? (t.text ?? "") : blocksToText(t.blocks ?? []);
     if (!content.trim()) continue;
@@ -83,6 +84,9 @@ export async function askTeacher(history: Turn[], question: string, profile: Stu
   // The API needs the first message to be from the user.
   while (messages.length && messages[0].role !== "user") messages.shift();
   messages.push({ role: "user", content: question });
+
+  if (config.ai === "deepseek") return askDeepSeek(messages, studentContext(profile, studentName));
+  client ??= new Anthropic({ apiKey: config.ANTHROPIC_API_KEY, timeout: 90_000, maxRetries: 2 });
 
   let response;
   try {
@@ -121,4 +125,48 @@ export async function askTeacher(history: Turn[], question: string, profile: Stu
   const out = response.parsed_output;
   if (!out || !out.blocks.length) throw new HttpError(502, "ai_error", "The AI teacher's answer was incomplete. Please ask again.");
   return out;
+}
+
+// DeepSeek's JSON mode guarantees valid JSON but not our shape, so the schema goes in the prompt and zod checks the reply.
+const DEEPSEEK_SYSTEM = `${SYSTEM}\n\nReply with only a JSON object that matches this JSON schema:\n${JSON.stringify(z.toJSONSchema(Answer))}`;
+
+/** DeepSeek's OpenAI-compatible chat API (https://api-docs.deepseek.com). */
+async function askDeepSeek(messages: Msg[], context: string): Promise<TeacherAnswer> {
+  let res: Response;
+  try {
+    res = await fetch("https://api.deepseek.com/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${config.DEEPSEEK_API_KEY}` },
+      body: JSON.stringify({
+        model: config.DEEPSEEK_MODEL,
+        max_tokens: 8000,
+        response_format: { type: "json_object" },
+        messages: [{ role: "system", content: `${DEEPSEEK_SYSTEM}\n\n${context}` }, ...messages],
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+  } catch (err) {
+    console.error("DeepSeek API unreachable:", err);
+    throw new HttpError(502, "ai_error", "The AI teacher couldn't answer just now. Please try again.");
+  }
+  if (res.status === 429 || res.status === 503) throw new HttpError(503, "ai_busy", "The AI teacher is busy right now. Please try again in a moment.");
+  if (res.status === 401 || res.status === 402 || res.status === 403) { // 402 = DeepSeek account out of balance
+    console.error(`DeepSeek API key/balance problem ${res.status}:`, await res.text());
+    throw new HttpError(503, "ai_not_configured", "The AI teacher isn't available right now.");
+  }
+  if (!res.ok) {
+    console.error(`DeepSeek API error ${res.status}:`, await res.text());
+    throw new HttpError(502, "ai_error", "The AI teacher couldn't answer just now. Please try again.");
+  }
+  const data = (await res.json()) as { choices?: { message?: { content?: string | null } }[] };
+  return parseAnswer(data.choices?.[0]?.message?.content);
+}
+
+/** Checks a model's JSON text against the board format. */
+export function parseAnswer(text: string | null | undefined): TeacherAnswer {
+  let json: unknown;
+  try { json = JSON.parse(text ?? ""); } catch { /* handled below */ }
+  const out = Answer.safeParse(json);
+  if (!out.success || !out.data.blocks.length) throw new HttpError(502, "ai_error", "The AI teacher's answer was incomplete. Please ask again.");
+  return out.data;
 }

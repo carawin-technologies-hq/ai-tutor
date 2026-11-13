@@ -12,7 +12,7 @@ npm run dev        # http://localhost:3000
 npm run build \&\& npm start
 ```
 
-Use the **Prototype Demo** chip (top bar / landing nav) to switch between Student, Parent and Admin portals and to reset demo data.
+Sign in on the **homepage** (Student, Parent or Admin tab in the sign-in card) against the API server in `server/` — start it first. Students and parents can create an account there; the admin is created by `npm run db:seed`. Each portal needs the matching account. The API URL defaults to `http://localhost:4000/api/v1` (set `NEXT_PUBLIC_API_URL` to change it). After sign-in, pages still show demonstration data.
 
 ## Structure
 
