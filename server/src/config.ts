@@ -10,6 +10,8 @@ const Env = z.object({
   GOOGLE_CLIENT_ID: z.string().optional().default(""),
   ANTHROPIC_API_KEY: z.string().optional().default(""),
   CLAUDE_MODEL: z.string().default("claude-opus-5-5"),
+  DEEPSEEK_API_KEY: z.string().optional().default(""),
+  DEEPSEEK_MODEL: z.string().default("deepseek-flash"),
   CHAT_DAILY_LIMIT: z.coerce.number().int().positive().default(60),
 });
 
@@ -22,6 +24,8 @@ if (!parsed.success) {
 export const config = {
   ...parsed.data,
   isProd: parsed.data.NODE_ENV === "production",
+  /** Which AI answers the teacher chat: DeepSeek when its key is set, else Claude, else none. */
+  ai: parsed.data.DEEPSEEK_API_KEY ? "deepseek" : parsed.data.ANTHROPIC_API_KEY ? "claude" : null,
   /** Allowed browser origins (comma-separated in FRONTEND_ORIGIN). */
   origins: parsed.data.FRONTEND_ORIGIN.split(",").map((s) => s.trim()).filter(Boolean),
   accessTokenTtlSec: 15 * 60,

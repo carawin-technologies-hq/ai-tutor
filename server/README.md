@@ -31,7 +31,9 @@ npm run dev                 # http://localhost:4000
 | `JWT_ACCESS_SECRET` | 32+ random characters for signing sign-in tokens |
 | `FRONTEND_ORIGIN` | The web app's URL(s), comma-separated (CORS + cookies) |
 | `GOOGLE_CLIENT_ID` | Google sign-in (OAuth client ID, "Web application"). Empty = Google sign-in off |
-| `ANTHROPIC_API_KEY` | Claude API key for the AI teacher. Empty = chat returns `503 ai_not_configured` |
+| `DEEPSEEK_API_KEY` | DeepSeek API key for the AI teacher. When set, DeepSeek is used instead of Claude |
+| `DEEPSEEK_MODEL` | Default `deepseek-flash` (or `deepseek-v4-pro`) |
+| `ANTHROPIC_API_KEY` | Claude API key, used when no DeepSeek key is set. Both empty = chat returns `503 ai_not_configured` |
 | `CLAUDE_MODEL` | Default `claude-opus-5-5` |
 | `CHAT_DAILY_LIMIT` | Teacher answers per student per day (cost control) |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | First admin account, created by `npm run db:seed` |

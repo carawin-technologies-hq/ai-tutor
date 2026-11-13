@@ -24,7 +24,7 @@ export function createApp() {
 
   app.get("/health", async (_req, res) => {
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ ok: true, ai: !!config.ANTHROPIC_API_KEY, google: !!config.GOOGLE_CLIENT_ID });
+    res.json({ ok: true, ai: config.ai, google: !!config.GOOGLE_CLIENT_ID });
   });
 
   const api = express.Router();
