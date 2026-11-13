@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", sans-serif; --font-display: Georgia, "Times New Roman", serif; }
+
+html { scroll-behavior: smooth; }
+body { @apply bg-mist text-ink antialiased; font-family: var(--font-sans); }
+.dark body { @apply bg-[#0A1424] text-slate-100; }
+.dark .card-surface { @apply bg-[#101E36] border-[#1E3050]; }
+:focus-visible { outline: 2px solid #DC143C; outline-offset: 2px; border-radius: 6px; }
+
+@layer components {
+  .card-surface { @apply bg-white border border-line rounded-xl2 shadow-card; }
+  .skeleton { @apply rounded-lg bg-gradient-to-r from-slate-200 via-slate-100 to-slate-200 bg-[length:800px_100%] animate-shimmer; }
+  .eyebrow { @apply text-xs font-semibold uppercase tracking-[0.14em] text-crimson; }
+  .scroll-thin::-webkit-scrollbar { width: 6px; height: 6px; }
+  .scroll-thin::-webkit-scrollbar-thumb { background: #C9D3E0; border-radius: 6px; }
+}

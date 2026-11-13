@@ -1,0 +1,479 @@
+// CARAWIN AI TUTOR — database schema (PostgreSQL)
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────────────────────── Accounts ─────────────────────────
+
+enum Role {
+  STUDENT
+  PARENT
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String?
+  googleId     String?    @unique
+  name         String
+  avatar       String?
+  role         Role
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  lastActiveAt DateTime?
+
+  sessions       Session[]
+  studentProfile StudentProfile?
+  parentLinks    ParentLink[]      @relation("ParentSide")
+  studentLinks   ParentLink[]      @relation("StudentSide")
+  attempts       Attempt[]
+  tasks          PlannerTask[]
+  notifications  Notification[]
+  activities     Activity[]
+  conversations  Conversation[]
+  lessonProgress LessonProgress[]
+  libraryDocs    LibraryDoc[]
+  favorites      LibraryFavorite[]
+  questionsMade  Question[]
+}
+
+/// Refresh-token session (token stored only as a SHA-256 hash).
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  userAgent String?
+  createdAt DateTime  @default(now())
+  expiresAt DateTime
+  revokedAt DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model StudentProfile {
+  userId        String   @id
+  age           String?
+  classLevel    String   @default("8")
+  board         String   @default("CBSE")
+  session       String?
+  school        String?
+  medium        String?
+  subjects      String[]
+  language      String   @default("English")
+  styles        String[]
+  teachingStyle String?
+  onboarded     Boolean  @default(false)
+  /// Code a parent enters to link to this student.
+  inviteCode    String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ParentLink {
+  parentId  String
+  studentId String
+  createdAt DateTime @default(now())
+  parent    User     @relation("ParentSide", fields: [parentId], references: [id], onDelete: Cascade)
+  student   User     @relation("StudentSide", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@id([parentId, studentId])
+  @@index([studentId])
+}
+
+// ───────────────────────── Curriculum ─────────────────────────
+
+model Chapter {
+  id         String     @id @default(cuid())
+  board      String
+  classLevel String
+  subject    String
+  name       String
+  order      Int        @default(0)
+  topics     Topic[]
+  questions  Question[]
+  lessons    Lesson[]
+  videos     Video[]
+
+  @@unique([board, classLevel, subject, name])
+  @@index([board, classLevel, subject])
+}
+
+model Topic {
+  id         String     @id @default(cuid())
+  chapterId  String
+  name       String
+  objectives String?
+  order      Int        @default(0)
+  chapter    Chapter    @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  questions  Question[]
+
+  @@unique([chapterId, name])
+}
+
+// ───────────────────────── Questions & tests ─────────────────────────
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum QuestionType {
+  mcq
+  multi
+  tf
+  fill
+  short
+  long
+  numerical
+  case
+  assertion
+  competency
+}
+
+enum ReviewStatus {
+  APPROVED
+  IN_REVIEW
+  DRAFT
+}
+
+model Question {
+  id          String         @id @default(cuid())
+  chapterId   String
+  topicId     String?
+  difficulty  Difficulty
+  type        QuestionType
+  text        String
+  passage     String?
+  /// Answer options for choice questions.
+  options     String[]
+  /// Correct answer: option index as string, list of indexes (multi), or text.
+  answer      Json
+  explanation String         @default("")
+  marks       Int            @default(1)
+  keywords    String[]
+  status      ReviewStatus   @default(DRAFT)
+  createdById String?
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  chapter     Chapter        @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  topic       Topic?         @relation(fields: [topicId], references: [id], onDelete: SetNull)
+  createdBy   User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  assessments AssessmentQuestion[]
+  attemptItems AttemptItem[]
+
+  @@index([chapterId, status])
+}
+
+enum AssessmentType {
+  CHAPTER_TEST
+  UNIT_TEST
+  SAMPLE_PAPER
+  REVISION_TEST
+}
+
+enum PublishStatus {
+  PUBLISHED
+  DRAFT
+}
+
+model Assessment {
+  id         String               @id @default(cuid())
+  name       String
+  type       AssessmentType
+  board      String
+  classLevel String
+  subject    String?
+  minutes    Int
+  status     PublishStatus        @default(DRAFT)
+  createdAt  DateTime             @default(now())
+  updatedAt  DateTime             @updatedAt
+  questions  AssessmentQuestion[]
+  attempts   Attempt[]
+}
+
+model AssessmentQuestion {
+  assessmentId String
+  questionId   String
+  order        Int
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question     Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([assessmentId, questionId])
+}
+
+enum AttemptMode {
+  PRACTICE
+  TEST
+}
+
+model Attempt {
+  id           String        @id @default(cuid())
+  studentId    String
+  assessmentId String?
+  mode         AttemptMode
+  title        String
+  subject      String?
+  startedAt    DateTime      @default(now())
+  submittedAt  DateTime?
+  /// Time limit for tests, in minutes.
+  minutes      Int?
+  score        Float?
+  maxScore     Float?
+  student      User          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  assessment   Assessment?   @relation(fields: [assessmentId], references: [id], onDelete: SetNull)
+  items        AttemptItem[]
+
+  @@index([studentId, submittedAt])
+}
+
+enum Verdict {
+  correct
+  partial
+  wrong
+  skipped
+}
+
+model AttemptItem {
+  attemptId  String
+  questionId String
+  order      Int
+  response   Json?
+  verdict    Verdict?
+  score      Float     @default(0)
+  timeSec    Int       @default(0)
+  answeredAt DateTime?
+  attempt    Attempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  question   Question  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@id([attemptId, questionId])
+}
+
+// ───────────────────────── Learning content ─────────────────────────
+
+model Lesson {
+  id        String           @id @default(cuid())
+  chapterId String
+  title     String
+  objective String
+  /// Ordered teaching beats and check questions (same shape the lesson player uses).
+  beats     Json
+  order     Int              @default(0)
+  status    PublishStatus    @default(DRAFT)
+  updatedAt DateTime         @updatedAt
+  chapter   Chapter          @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  progress  LessonProgress[]
+}
+
+enum LessonState {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model LessonProgress {
+  studentId   String
+  lessonId    String
+  state       LessonState
+  updatedAt   DateTime    @updatedAt
+  completedAt DateTime?
+  student     User        @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  lesson      Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([studentId, lessonId])
+}
+
+model Video {
+  id          String        @id @default(cuid())
+  title       String
+  subject     String
+  chapterId   String?
+  topic       String?
+  language    String        @default("English")
+  duration    String?
+  description String        @default("")
+  url         String?
+  objectives  String[]
+  takeaways   String[]
+  /// Quick check questions: [{ q, options, answer }]
+  questions   Json          @default("[]")
+  status      PublishStatus @default(DRAFT)
+  createdAt   DateTime      @default(now())
+  chapter     Chapter?      @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+}
+
+enum DocKind {
+  TEXTBOOK
+  NOTES
+  WORKSHEET
+  PDF
+}
+
+model LibraryDoc {
+  id        String            @id @default(cuid())
+  /// null = platform document visible to everyone; otherwise the student's own document.
+  ownerId   String?
+  title     String
+  kind      DocKind
+  subject   String
+  chapter   String?
+  pages     Int               @default(1)
+  /// Page texts, for reading in the app.
+  content   String[]
+  fileUrl   String?
+  createdAt DateTime          @default(now())
+  owner     User?             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  favorites LibraryFavorite[]
+
+  @@index([ownerId])
+}
+
+model LibraryFavorite {
+  userId String
+  docId  String
+  user   User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  doc    LibraryDoc @relation(fields: [docId], references: [id], onDelete: Cascade)
+
+  @@id([userId, docId])
+}
+
+/// Generic admin content items (chapter material, notes, examples…).
+model ContentItem {
+  id        String       @id @default(cuid())
+  title     String
+  kind      String
+  subject   String
+  chapter   String?
+  language  String       @default("English")
+  status    ReviewStatus @default(DRAFT)
+  body      String?
+  updatedAt DateTime     @updatedAt
+}
+
+// ───────────────────────── Planner, activity, notifications ─────────────────────────
+
+enum Priority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum TaskKind {
+  STUDY
+  HOMEWORK
+  REVISION
+  TEST
+}
+
+model PlannerTask {
+  id        String   @id @default(cuid())
+  studentId String
+  title     String
+  subject   String
+  /// yyyy-mm-dd
+  date      String
+  duration  Int
+  priority  Priority @default(MEDIUM)
+  kind      TaskKind @default(STUDY)
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, date])
+}
+
+enum ActivityKind {
+  LESSON
+  PRACTICE
+  TEST
+  CHAT
+  VIDEO
+}
+
+/// Study activity, used for time spent, streaks and parent timelines.
+model Activity {
+  id        String       @id @default(cuid())
+  studentId String
+  kind      ActivityKind
+  minutes   Float
+  summary   String
+  subject   String?
+  createdAt DateTime     @default(now())
+  student   User         @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([studentId, createdAt])
+}
+
+enum NoticeKind {
+  info
+  success
+  warning
+}
+
+model Notification {
+  id        String     @id @default(cuid())
+  userId    String
+  title     String
+  body      String
+  kind      NoticeKind @default(info)
+  read      Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+}
+
+// ───────────────────────── AI teacher chat ─────────────────────────
+
+model Conversation {
+  id        String    @id @default(cuid())
+  studentId String
+  title     String
+  subject   String    @default("General")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  student   User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  messages  Message[]
+
+  @@index([studentId, updatedAt])
+}
+
+enum MessageRole {
+  STUDENT
+  TEACHER
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  /// Student's text.
+  text           String?
+  /// Teacher's whiteboard blocks (headings, paragraphs, formulas, diagrams…).
+  blocks         Json?
+  saved          Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+// ───────────────────────── Admin settings ─────────────────────────
+
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
